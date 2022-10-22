@@ -103,15 +103,9 @@ public class Main {
 
         // store list of all persons
         List<Person> allPeeps = new ArrayList<>();
-        {
-            // since you can't manually destroy objects in java and I don't want to keep around two copies of essentially
-            // the same information I enclosed the cleanedData object in a local scope so hopefully the GC will nuke it
-            // once I'm done with it
-            List<List<String>> cleanedData = CleanAndFormatData(data);
 
-            for (List<String> list : cleanedData) {
-                allPeeps.add(new Person(list));
-            }
+        for (List<String> list : CleanAndFormatData(data)) {
+            allPeeps.add(new Person(list));
         }
 
         // a hashmap here makes the most sense at scale for speed
