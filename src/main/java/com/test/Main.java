@@ -8,7 +8,7 @@ import java.util.*;
 public class Main {
     static String path;         // will store path to the input file
 
-    public  static void ListToHashmap(List<Person> personList, HashMap<String, List<Person>> personHash) {
+    public static void ListToHashmap(List<Person> personList, HashMap<String, List<Person>> personHash) {
 
         for (Person peep : personList) {
             String addy = peep.getAddress();
@@ -23,13 +23,13 @@ public class Main {
         void writeData(T data, FileWriter writer) throws IOException;
      }
 
-    public static <T> void WriteToFile(String title, T collection, BinaryOperator<T, FileWriter> operator) {
+    public static <T> void WriteToCSVFile(String header, T collection, BinaryOperator<T, FileWriter> operator) {
         // The rest is messy code to output data to csv files and the console
-        File output = new File(title.replaceAll(",", "-").toLowerCase() + "-" + new Date().getTime() + ".csv");
+        File output = new File(header.replaceAll(",", "-").toLowerCase() + "-" + new Date().getTime() + ".csv");
         try {
             if(output.createNewFile()) {
                 try (FileWriter writer = new FileWriter(output.getPath())) {
-                    writer.write(title + "\n");
+                    writer.write(header + "\n");
                     operator.writeData(collection, writer);
                 } catch (Exception e) {
                     System.out.println(e.getMessage());
@@ -89,13 +89,17 @@ public class Main {
         allPeeps.sort(Comparator.comparing(Person::getLastName).thenComparing(Person::getFirstName));
         // what??? ^^^ that was quick! I thought I was gonna have to implement my own custom comparator
 
-        WriteToFile("Household,Occupants", addressDb, (data, writer) -> {
+        // write addressDb to a csv file
+        // check out the lambda for specific implementation
+        WriteToCSVFile("Household,Occupants", addressDb, (data, writer) -> {
             for (var k : data.keySet()) {
                 writer.write(k + "," + addressDb.get(k).size() + "\n");
             }
         });
 
-        WriteToFile("FirstName,LastName,Address,Age", allPeeps, (data, writer) -> {
+        // write allPeeps to a csv file
+        // check out the lambda for specific implementation
+        WriteToCSVFile("FirstName,LastName,Address,Age", allPeeps, (data, writer) -> {
             for (Person peep : data) {
                 if (peep.getAge() > 18) {
                     writer.write(peep.getFirstName() + "," + peep.getLastName() + "," + peep.getAddress() + "," + peep.getAge() + "\n");
@@ -103,6 +107,7 @@ public class Main {
             }
         });
 
+        // Finally pretty print to the terminal
         System.out.println("Each household and number of occupants:");
         System.out.printf("-----------------------------------------------------------------%n");
         System.out.printf("  %-40s %s%n", "Households:", "Occupants:");
