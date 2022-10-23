@@ -1,8 +1,8 @@
 package com.test;
 
 import java.io.File;
-import java.io.FileDescriptor;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
 
 public class Main {
@@ -18,60 +18,19 @@ public class Main {
         }
     }
 
-    public static void main(String[] args) {
+     @FunctionalInterface
+     interface BinaryOperator<T,FileWriter> {
+        void writeData(T data, FileWriter writer) throws IOException;
+     }
 
-        // a dynamically sized collection of strings where the raw data will be stored line by line
-        List<String> data;
-
-        // first check if the input file was provided as an argument
-        // if not then try and load the default test data in 'test.data'
-        if (args.length < 1)
-            path = "./test.data";
-        else
-            path = args[0];
-
-        try {
-            // attempt to load data
-            data = Formatting.LoadDataFromFile(path);
-        } catch (Exception e) {
-            return;
-        }
-
-        System.out.printf("Loaded file: %s%n%n", path);
-        for (String line : data) {
-            System.out.println(line);
-        }
-
-        System.out.println("\nCleaning up the file...\n");
-
-
-        // store list of all persons
-        List<Person> allPeeps = new ArrayList<>();
-
-        for (List<String> list : Formatting.CleanAndFormatData(data)) {
-            allPeeps.add(new Person(list));
-        }
-
-        // a hashmap here makes the most sense at scale for speed
-        // alternatively a naive approach using arrays would require traversing the entire array each time a new person
-        // is added to verify that the address doesn't already exist
-        // store list of persons hashed by address
-        HashMap<String, List<Person>> addressDb = new HashMap<>();
-
-        ListToHashmap(allPeeps, addressDb);
-
-        allPeeps.sort(Comparator.comparing(Person::getLastName).thenComparing(Person::getFirstName));
-        // what??? ^^^ that was quick! I thought I was gonna have to implement my own custom comparator
-
+    public static <T> void WriteToFile(String title, T collection, BinaryOperator<T, FileWriter> operator) {
         // The rest is messy code to output data to csv files and the console
-        File output = new File("household-occupants-"+new Date().getTime()+".csv");
+        File output = new File(title.replaceAll(",", "-").toLowerCase() + "-" + new Date().getTime() + ".csv");
         try {
             if(output.createNewFile()) {
-                try (FileWriter wrtr = new FileWriter(output.getPath())) {
-                    wrtr.write("Household,Occupants\n");
-                    for (var k : addressDb.keySet()) {
-                        wrtr.write(k + "," + addressDb.get(k).size() + "\n");
-                    }
+                try (FileWriter writer = new FileWriter(output.getPath())) {
+                    writer.write(title + "\n");
+                    operator.writeData(collection, writer);
                 } catch (Exception e) {
                     System.out.println(e.getMessage());
                 }
@@ -82,24 +41,67 @@ public class Main {
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
+    }
 
-        try {
-            output = new File("sorted-last-first-age-"+new Date().getTime()+".csv");
-            if (output.createNewFile()) {
-                try (FileWriter wrtr = new FileWriter(output.getPath())) {
-                    wrtr.write("FirstName,LastName,Address,Age\n");
-                    for (Person peep : allPeeps) {
-                        if (peep.getAge() > 18) {
-                            wrtr.write(peep.getFirstName() + "," + peep.getLastName() + "," + peep.getAddress() + "," + peep.getAge() + "\n");
-                        }
-                    }
-                } catch (Exception e) {
-                    System.out.println(e.getMessage());
+    public static void main(String[] args) {
+
+        // store list of all persons
+        List<Person> allPeeps = new ArrayList<>();
+
+        // store list of persons hashed by address
+        HashMap<String, List<Person>> addressDb = new HashMap<>();
+        // a hashmap here makes the most sense at scale for speed
+        // alternatively a naive approach using arrays would require traversing the entire array each time a new person
+        // is added to verify that the address doesn't already exist
+
+        {
+            // a dynamically sized collection of strings where the raw data will be stored line by line
+            List<String> data;
+
+            // first check if the input file was provided as an argument
+            // if not then try and load the default test data in 'test.data'
+            if (args.length < 1)
+                path = "./test.data";
+            else
+                path = args[0];
+
+            try {
+                // attempt to load data
+                data = Formatting.LoadDataFromFile(path);
+            } catch (Exception e) {
+                return;
+            }
+
+            System.out.printf("Loaded file: %s%n%n", path);
+            for (String line : data) {
+                System.out.println(line);
+            }
+
+            System.out.println("\nCleaning up the file...\n");
+
+            for (List<String> list : Formatting.CleanAndFormatData(data)) {
+                allPeeps.add(new Person(list));
+            }
+        }
+
+        ListToHashmap(allPeeps, addressDb);
+
+        allPeeps.sort(Comparator.comparing(Person::getLastName).thenComparing(Person::getFirstName));
+        // what??? ^^^ that was quick! I thought I was gonna have to implement my own custom comparator
+
+        WriteToFile("Household,Occupants", addressDb, (data, writer) -> {
+            for (var k : data.keySet()) {
+                writer.write(k + "," + addressDb.get(k).size() + "\n");
+            }
+        });
+
+        WriteToFile("FirstName,LastName,Address,Age", allPeeps, (data, writer) -> {
+            for (Person peep : data) {
+                if (peep.getAge() > 18) {
+                    writer.write(peep.getFirstName() + "," + peep.getLastName() + "," + peep.getAddress() + "," + peep.getAge() + "\n");
                 }
             }
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-        }
+        });
 
         System.out.println("Each household and number of occupants:");
         System.out.printf("-----------------------------------------------------------------%n");
