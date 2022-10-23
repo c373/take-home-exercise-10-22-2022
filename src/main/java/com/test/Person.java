@@ -16,13 +16,12 @@ public class Person {
 
         @Override
         public String toString() {
-            return this.streetAddress + " " + this.city + ", " + this.state;
+            return this.streetAddress + " " + this.city + " " + this.state;
         }
 
         // TODO : getter methods
     }
 
-    private final String DELIM = ", ";
     private final String firstName;
     private final String lastName;
     private final Address address;
@@ -51,7 +50,8 @@ public class Person {
 
     @Override
     public String toString() {
-        return this.firstName + DELIM + this.lastName + DELIM + this.address.toString() + DELIM + this.age;
+        final String delim = ", ";
+        return this.firstName + delim + this.lastName + delim + this.address.toString() + delim + this.age;
     }
 
     public String getFirstName() {

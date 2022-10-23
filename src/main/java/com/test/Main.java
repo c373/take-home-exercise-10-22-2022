@@ -1,80 +1,24 @@
 package com.test;
 
 import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileWriter;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class Main {
+    static String path;         // will store path to the input file
 
-    // loads a file line by line into a List<String>
-    private static List<String> LoadDataFromFile(String path) {
-        List<String> data = new ArrayList<>();
-        File testData = new File(path);
+    public  static void ListToHashmap(List<Person> personList, HashMap<String, List<Person>> personHash) {
 
-        try {
-            Scanner scnr = new Scanner(testData);
+        for (Person peep : personList) {
+            String addy = peep.getAddress();
 
-            while (scnr.hasNextLine()) {
-                String d = scnr.nextLine();
-                if (d.length() > 0) {
-                    data.add(d);
-                }
-            }
-
-            scnr.close();
-        } catch (Exception e) {
-           System.out.println(e.getMessage());
-           throw new RuntimeException();
+            personHash.computeIfAbsent(addy, k -> new ArrayList<>());
+            personHash.get(addy).add(peep);
         }
-        return data;
-    }
-
-    // the meat and potatoes of this lil program
-    private static List<List<String>> CleanAndFormatData(List<String> data) {
-        List<List<String>> cleanedData = new ArrayList<>(data.size());
-
-        // initialize the multidimensional List
-        for (int i = 0; i < data.size(); i++) {
-            cleanedData.add(new ArrayList<>());
-        }
-
-        // use regex to parse each line into substrings
-        // everything between two corresponding double quotes will be matched
-        Pattern rgxPttrn = Pattern.compile("\"(.*?)\"");
-        Matcher matcher;
-
-        var iter = cleanedData.iterator();
-        List<String> next;
-
-        // for each line (datum) of data
-        for (String datum : data) {
-            // get the next List<String> in cleanedData
-            next = iter.next();
-
-            // match datum against the regex
-            matcher = rgxPttrn.matcher(datum);
-
-            // find each match, clean it, and add it as a substring to the list
-            while (matcher.find()) {
-                next.add(
-                        datum
-                                .substring(matcher.start(), matcher.end())
-                                .replaceAll("\"*,*\"", "")
-                                .replaceAll("\\.*,*", "")
-                                .toUpperCase()
-                                .trim()
-                );
-            }
-        }
-
-        return cleanedData;
     }
 
     public static void main(String[] args) {
-
-        // will store path to the input file
-        String path;
 
         // a dynamically sized collection of strings where the raw data will be stored line by line
         List<String> data;
@@ -88,7 +32,7 @@ public class Main {
 
         try {
             // attempt to load data
-            data = LoadDataFromFile(path);
+            data = Formatting.LoadDataFromFile(path);
         } catch (Exception e) {
             return;
         }
@@ -104,21 +48,57 @@ public class Main {
         // store list of all persons
         List<Person> allPeeps = new ArrayList<>();
 
-        for (List<String> list : CleanAndFormatData(data)) {
+        for (List<String> list : Formatting.CleanAndFormatData(data)) {
             allPeeps.add(new Person(list));
         }
 
         // a hashmap here makes the most sense at scale for speed
         // alternatively a naive approach using arrays would require traversing the entire array each time a new person
         // is added to verify that the address doesn't already exist
-        // store list of persons hashed by address; quick and cheap
-        HashMap<String, ArrayList<Person>> addressDb = new HashMap<>();
+        // store list of persons hashed by address
+        HashMap<String, List<Person>> addressDb = new HashMap<>();
 
-        for (Person peep : allPeeps) {
-            String addy = peep.getAddress();
+        ListToHashmap(allPeeps, addressDb);
 
-            addressDb.computeIfAbsent(addy, k -> new ArrayList<>());
-            addressDb.get(addy).add(peep);
+        allPeeps.sort(Comparator.comparing(Person::getLastName).thenComparing(Person::getFirstName));
+        // what??? ^^^ that was quick! I thought I was gonna have to implement my own custom comparator
+
+        // The rest is messy code to output data to csv files and the console
+        File output = new File("household-occupants-"+new Date().getTime()+".csv");
+        try {
+            if(output.createNewFile()) {
+                try (FileWriter wrtr = new FileWriter(output.getPath())) {
+                    wrtr.write("Household,Occupants\n");
+                    for (var k : addressDb.keySet()) {
+                        wrtr.write(k + "," + addressDb.get(k).size() + "\n");
+                    }
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                }
+            }
+            else {
+                throw new RuntimeException("Error creating output file.");
+            }
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+
+        try {
+            output = new File("sorted-last-first-age-"+new Date().getTime()+".csv");
+            if (output.createNewFile()) {
+                try (FileWriter wrtr = new FileWriter(output.getPath())) {
+                    wrtr.write("FirstName,LastName,Address,Age\n");
+                    for (Person peep : allPeeps) {
+                        if (peep.getAge() > 18) {
+                            wrtr.write(peep.getFirstName() + "," + peep.getLastName() + "," + peep.getAddress() + "," + peep.getAge() + "\n");
+                        }
+                    }
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
         }
 
         System.out.println("Each household and number of occupants:");
@@ -133,11 +113,7 @@ public class Main {
         System.out.printf("--------------------------------------------------------------------------------%n");
         System.out.printf("  %-15s %-15s %-40s %-3s%n", "Firstname", "Lastname", "Address", "Age");
         System.out.printf("--------------------------------------------------------------------------------%n");
-
-        allPeeps.sort(Comparator.comparing(Person::getLastName).thenComparing(Person::getFirstName));
-        // what??? ^^^ that was absolute cake! I thought I was gonna have to implement my own custom comparator
-
-        for ( Person peep : allPeeps) {
+        for (Person peep : allPeeps) {
             if(peep.getAge() > 18) {
                 System.out.printf("  %-15s %-15s %-40s %-3d%n", peep.getFirstName(), peep.getLastName(), peep.getAddress(), peep.getAge());
             }
